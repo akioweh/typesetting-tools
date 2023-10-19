@@ -45,13 +45,12 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 
 \LoadClass[11pt,a4paper]{article}
 
-\RequirePackage{geometry}
-\geometry{%
+\RequirePackage[
     a4paper,
     textwidth=374.4bp,  % 5.2in
     textheight=619.2bp, % 8.6in
     top=100bp
-}
+]{geometry}
 \RequirePackage[T1]{fontenc}
 \RequirePackage{setspaceenhanced}
 \RequirePackage{microtype}
@@ -70,7 +69,6 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage{multirow}
 \RequirePackage{siunitx}
 \RequirePackage{array}
-\RequirePackage{xurl}
 \RequirePackage{regexpatch}
 \ifakiotex@bib
     \RequirePackage[
@@ -80,11 +78,12 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
         backref=true
     ]{biblatex}
 \fi
+\RequirePackage{xurl}
 \RequirePackage{float}
 \RequirePackage[section]{placeins}
 \RequirePackage{titlesec}
 \RequirePackage[thinc]{esdiff}
-\RequirePackage[hidelinks,hypertexnames=false]{hyperref}
+\RequirePackage[hidelinks,hypertexnames=false,breaklinks=true]{hyperref}
 \RequirePackage{bookmark}
 \RequirePackage{calc}
 \RequirePackage[unit=bp,use-siunitx=true]{lengthconvert}
@@ -148,6 +147,8 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \setlength{\floatsep}{1.15\@parskip}     % between floats
 \setlength{\@fpsep}{\floatsep}           % between floats on a float-only page
 
+% space between text body and footnotes
+\geometry{footnotesep=3\@parskip}
 
 % =============== Styling (Other) ===============
 
@@ -166,15 +167,19 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \makebox[1.5em][l]{\thefootnotemark}%
 }
 
-% bibliography style (use smaller font and obey parskip)
+% bibliography style (use a smaller font, don't justify, and obey parskip)
 \ifakiotex@bib
     \renewcommand*{\bibfont}{\normalfont\small\raggedright}  % left-aligned bibliography with reduced font size
     \setlength{\bibitemsep}{\@parskip}  % add space between bibliography entries
+    % allow (almost) arbitrary linebreaking of URLs
+    \setcounter{biburllcpenalty}{1}
+    \setcounter{biburlucpenalty}{1}
+    \setcounter{biburlnumpenalty}{1}
 \fi
 
 % custom small header with \paragraph
 \titleformat{\paragraph}[hang]{\normalfont\normalsize\bfseries}{\theparagraph}{0pt}{}
-\titlespacing{\paragraph}{0pt}{2\parskip}{\parskip}
+\titlespacing{\paragraph}{0pt}{2\@parskipS}{\@parskip}
 
 
 % =============== Patching Biblatex ===============
