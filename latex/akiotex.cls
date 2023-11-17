@@ -3,7 +3,7 @@
 %! Date = 10/2/2023
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{akiotex}[2023-10-11 An amended version of article.cls that enforces a set of %
+\ProvidesPackage{akiotex}[2023-11-17 An amended version of article.cls that enforces a set of %
 predefined formatting and layout features for modern akiotex works (based on personal preference). %
 Includes useful packages and any patches/fixes for them as well as certain QOL macros.]
 
@@ -13,14 +13,18 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 % use kvoptions as parser
 \RequirePackage{kvoptions}
 
+\DeclareStringOption[single]{linespacing}   % [single|onehalf|double]: the document's line spacing
 \DeclareBoolOption[true]{author}            % bool: whether author should be shown on titlepage
 \DeclareBoolOption[true]{date}              % bool: whether date should be shown on titlepage
 \DeclareBoolOption[true]{contents}          % bool: whether a table of contents should be generated
-\DeclareBoolOption[true]{separatecontents}  % bool: place ToC after titlepage or on same page?
-\DeclareStringOption[single]{linespacing}   % [single|onehalf|double]: the document's line spacing
-\DeclareBoolOption[false]{debug}            % bool: currently unused
-\DeclareBoolOption[false]{compacteqs}       % bool: whether to use reduced spacing between equations and text
+\DeclareBoolOption[true]{separatetoc}       % bool: place ToC after titlepage or on same page?
 \DeclareBoolOption[true]{bib}               % bool: whether to support a bibliography (uses biblatex with biber)
+\DeclareBoolOption[false]{debug}            % bool: magic!
+\DeclareBoolOption[false]{compacteqs}       % bool: whether to use reduced spacing between equations and text
+\DeclareBoolOption[false]{timestamp}        % bool: whether to include a time of compilation in footer of title page
+\DeclareBoolOption[false]{plotting}         % bool: whether to load pgfplots and tikz
+\DeclareBoolOption[false]{compacttoc}       % bool: compact ToC?
+\DeclareBoolOption[false]{compacttitle}     % bool: compact title page? If this is on titlenotes are not allowed
 
 \ProcessKeyvalOptions*\relax
 
@@ -51,23 +55,29 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     textheight=619.2bp, % 8.6in
     top=100bp
 ]{geometry}
-\RequirePackage[T1]{fontenc}
-\RequirePackage{setspaceenhanced}
+\RequirePackage{luaotfload}
+\RequirePackage{fontspec}
+\RequirePackage{amsmath}
+\RequirePackage{amssymb}
+\RequirePackage{mathtools}
+\RequirePackage[warnings-off={mathtools-colon,mathtools-overbracket}]{unicode-math}
 \RequirePackage{microtype}
-\RequirePackage[american]{babel}
+\RequirePackage{setspaceenhanced}
+\RequirePackage{polyglossia}
+\setdefaultlanguage[variant=us]{english}
 \RequirePackage[hypcap=true]{caption}
 \RequirePackage{csquotes}
 \RequirePackage{scrextend}
 \RequirePackage{enumitem}
 \RequirePackage{wrapfig2}
-\RequirePackage{amsmath}
-\RequirePackage{amssymb}
 \RequirePackage{xfrac}
 \RequirePackage{graphicx}
 \RequirePackage{booktabs}
 \RequirePackage{tabularx}
 \RequirePackage{multirow}
 \RequirePackage{siunitx}
+\RequirePackage{physics}
+\RequirePackage{physics2}
 \RequirePackage{array}
 \RequirePackage{regexpatch}
 \ifakiotex@bib
@@ -81,12 +91,35 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage{xurl}
 \RequirePackage{float}
 \RequirePackage[section]{placeins}
-\RequirePackage{titlesec}
+\RequirePackage[pagestyles]{titlesec}
+\RequirePackage{titletoc}
 \RequirePackage[thinc]{esdiff}
-\RequirePackage[hidelinks,hypertexnames=false,breaklinks=true]{hyperref}
+\RequirePackage[unicode,hidelinks,hypertexnames=false,breaklinks=true]{hyperref}
 \RequirePackage{bookmark}
 \RequirePackage{calc}
+\RequirePackage{fmtcount}
 \RequirePackage[unit=bp,use-siunitx=true]{lengthconvert}
+\RequirePackage[english,showdow]{datetime2}
+\RequirePackage{multicol}
+\ifakiotex@plotting
+    \RequirePackage{tikz}
+    \RequirePackage{pgfplots}
+\fi
+\ifakiotex@debug
+    \RequirePackage{lua-visual-debug}
+    %\geometry{showframe}
+\fi
+
+\usephysicsmodule[tightbraces=true]{ab}
+
+\defaultfontfeatures{Ligatures=TeX}
+\setmainfont{Latin Modern Roman}
+%\setmathfont{Latin Modern Math}
+
+% silence siunitx warning about physics being loaded
+\ExplSyntaxOn
+\msg_redirect_name:nnn { siunitx } { physics-pkg } { none }
+\ExplSyntaxOff
 
 
 % =============== Random Setups ===============
@@ -150,6 +183,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 % space between text body and footnotes
 \geometry{footnotesep=3\@parskip}
 
+
 % =============== Styling (Other) ===============
 
 \setcounter{tocdepth}{3}  % set ToC levels to show
@@ -161,6 +195,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 % default float placement options
 \floatplacement{figure}{!htbp}
 \floatplacement{table}{H}
+\g@addto@macro\@floatboxreset{\centering}  % all floats contents are centered by default
 
 % modify footnote number style
 \deffootnote[1.5em]{1.5em}{1em}{%
@@ -180,6 +215,38 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 % custom small header with \paragraph
 \titleformat{\paragraph}[hang]{\normalfont\normalsize\bfseries}{\theparagraph}{0pt}{}
 \titlespacing{\paragraph}{0pt}{2\@parskipS}{\@parskip}
+
+% custome datetime formats
+\DTMnewdatestyle{akDT}{%
+    \renewcommand{\DTMdisplaydate}[4]{%
+        \DTMweekdayname{##4}\space
+        \ordinalnum{##3}\space of\space
+        \DTMmonthname{##2},\space
+        ##1%
+    }%
+    \renewcommand{\DTMDisplaydate}{\DTMdisplaydate}%
+}
+\DTMnewtimestyle{akTM}{%
+    \renewcommand{\DTMdisplaytime}[3]{%
+        \def\THEHOUR{##1}\def\THEAMPM{AM}% Assume AM
+        \ifnum##1>12
+        \edef\THEHOUR{\number\numexpr##1-12}% Correct for...
+        \edef\THEAMPM{PM}% ...PM
+        \fi
+        \THEHOUR:% <hh>
+        \DTMtwodigits{##2}% <mm>
+        \space\THEAMPM% AM/PM
+    }%
+}
+\AfterEndPreamble{
+    \DTMsetdatestyle{akDT}\DTMsettimestyle{akTM}  % for some reason doesnn't work if in preamble
+    \allowdisplaybreaks  % let's also put this here; allowing multiline math environments to be broken across pages
+}
+
+% page style for custom title page header that includes compile time
+\newpagestyle{title}{%
+    \setfoot{}{}{\tiny Compiled \DTMnow}
+}
 
 
 % =============== Patching Biblatex ===============
@@ -220,6 +287,19 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \newcommand{\makebibliography}{\printbibliography[heading=bibnumbered]}
 \fi
 
+% \vb \va and \vu commands from the physics package
+%\newcommand\vb{\@ifstar\boldsymbol\mathbf}
+%\newcommand\va[1]{\@ifstar{\vec{#1}}{\vec{\mathrm{#1}}}}
+%\newcommand\vu[1]{%
+%    \@ifstar{\hat{\boldsymbol{#1}}}{\hat{\mathbf{#1}}}}
+
+% defining extra trignometric functions
+\DeclareMathOperator{\arccosh}{arccosh}
+\DeclareMathOperator{\arcsinh}{arcsinh}
+\DeclareMathOperator{\arctanh}{arctanh}
+\DeclareMathOperator{\arcsech}{arcsech}
+\DeclareMathOperator{\arccsch}{arccsch}
+\DeclareMathOperator{\arccoth}{arccoth}
 
 % =============== Custom Environments ===============
 
@@ -240,7 +320,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
         \setlength{\labelwidth}{1.5em}
         \setlength{\itemindent}{0pt}
     }
-}{%
+    }{%
     \end{list}%
 }
 
@@ -260,7 +340,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
         \setlength{\labelwidth}{1em}
         \setlength{\itemindent}{0pt}
     }
-}{%
+    }{%
     \end{list}%
 }
 
@@ -295,35 +375,57 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \let\@titlenotes\empty
 \newcommand{\titlenotes}[1]{\renewcommand{\@titlenotes}{#1}}
 
+% compact ToC stuff
+\ifakiotex@compacttoc
+    \contentsmargin{1.5em}
+    \addtocontents{toc}{\vspace{-0.6em}}
+
+    \titlecontents{section}
+        [1.3em]
+        {\vspace{4pt plus 1pt minus 1pt}\filright\bfseries}
+        {\contentslabel[\thecontentslabel]{1.3em}}
+        {\hspace*{-1.3em}}
+        {\hspace{\stretch{1}}\contentspage}
+    \dottedcontents{subsection}[3em]{}{2em}{0.5pc}
+    \dottedcontents{subsubsection}[5.6em]{}{3em}{0.5pc}
+\fi
+
 % helper maketitle command
 \newcommand{\akiotex@maketitle}{%
     \begingroup
     \renewcommand\thefootnote{\@fnsymbol\c@footnote}%
     \def\@makefnmark{\rlap{\@textsuperscript{\normalfont\@thefnmark}}}%
-    \long\def\@makefntext##1{\parindent 1em\noindent
-    \hb@xt@1.8em{%
-        \hss\@textsuperscript{\normalfont\@thefnmark}}##1}%
+    \long\def\@makefntext##1{\parindent 1em\noindent\hb@xt@1.8em{\hss\@textsuperscript{\normalfont\@thefnmark}}##1}%
 %
     %\newpage
     \global\@topnum\z@   % Prevents figures from going at top of page.
-    \null
-    \vskip 2em
-    \begin{center}%
-        \let \footnote \thanks
-        {\LARGE \@title \par}%
-        \vskip 1.5em%
-        \ifakiotex@author
-            {\large \lineskip .5em
-            \begin{tabular}[t]{c}%
-                \@author
-            \end{tabular}\par}%
+    \let \footnote \thanks
+    {\centering \LARGE \@title \par}%
+    \ifakiotex@compacttitle
+        \vskip 0.3em%
+    \else
+        \vskip 2em%
+    \fi
+    \ifakiotex@author{
+        \centering \large %\lineskip .5em
+        \begin{tabular}[t]{c}%
+            \@author
+        \end{tabular}\par
+        }
+        \ifakiotex@compacttitle\else
+            \vskip 1em%
         \fi
-        \vskip 1em%
-        \ifakiotex@date
-            {\large \@date}%
-        \fi
-    \end{center}%
-    \thispagestyle{empty}\@thanks
+    \fi
+
+    \ifakiotex@date{
+        \centering \large \@date \par
+    }\fi
+    \ifakiotex@timestamp%
+        \thispagestyle{title}%
+    \else%
+        \thispagestyle{empty}%
+    \fi%
+    \@thanks
     \endgroup
     \pagenumbering{Alph}%
 }
@@ -334,37 +436,66 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \let\saved@thepage\thepage
     \let\thepage\relax
 %
+    \ifakiotex@compacttitle\else
+        \vspace*{2em}%
+    \fi
     \akiotex@maketitle
 %
-    \ifx\@subtitle\empty
-    \else
+    \ifx\@subtitle\empty\else
         \ifx\@titlenotes\empty
-            \vspace{3\baselineskip}%
+            \ifakiotex@compacttitle\else
+                \vspace{2\baselineskip}%
+            \fi
         \else
             \vspace{\stretch{4}}%
         \fi
-        \begin{center}%
-            {\large \@subtitle}
-        \end{center}%
+        {\centering\large \@subtitle \par}%
     \fi
 %
-    \ifx\@titlenotes\empty
-    \else
-        \vspace{\stretch{4}}%
-        \begin{bottompar}%
-            \noindent {\large \@titlenotes}%
-        \end{bottompar}%
+    \ifx\@titlenotes\empty\else
+        \ifakiotex@compacttitle
+            \ClassWarningNoLine{akiotex}{Title notes are set along with option `compacttitle`; the notes will be ignored and not displayed.}
+        \else
+            \vspace{\stretch{4}}%
+            \begin{bottompar}%
+                \noindent {\large \@titlenotes}%
+            \end{bottompar}%
+        \fi
     \fi
 %
     \ifakiotex@contents
-        \ifakiotex@separatecontents
-            \clearpage
+        \ifakiotex@separatetoc
+            \ifakiotex@compacttitle
+                \ClassWarningNoLine{akiotex}{Compact title option set; ignoring `separatetoc` option.}
+            \else
+                \clearpage
+            \fi
+        \else
+            \ifakiotex@compacttitle\else
+                \vspace*{1em}%
+            \fi
         \fi
-        \tableofcontents
+%
+        \ifakiotex@compacttoc
+            \newlength{\@colsep}%
+            \setlength{\@colsep}{\columnsep}%
+            \setlength{\columnsep}{2em}%
+            \begin{multicols}{2}
+        \fi
+        {\singlespacing \tableofcontents}
+        \ifakiotex@compacttoc
+            \end{multicols}
+            \setlength{\columnsep}{\@colsep}
+        \fi
+%
         \thispagestyle{empty}%
     \fi
 %
-    \clearpage
+    \ifakiotex@compacttitle
+        \thispagestyle{plain}%
+    \else
+        \clearpage
+    \fi
     \pagenumbering{arabic}%
     \let\thepage\saved@thepage
 }
@@ -385,6 +516,8 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 
 % macro to print the values of all kinds of sizes and skips
 \newcommand{\lengthinfo}{%
+    \begingroup
+    \hfuzz=\maxdimen
     \normalfont\normalsize\noindent textarea: \pl{\textwidth}~\texttimes~\pl{\textheight}
     \quad papersize: \pl{\paperwidth}~\texttimes~\pl{\paperheight}\\
     L-margin: \pl{\@Lmargin} \quad R-margin: \pl{\@Rmargin} \quad T-margin: \pl{\@Tmargin} \quad B-margin: \pl{\@Bmargin} \\
@@ -404,6 +537,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 
     \noindent above: \the\abovedisplayskip \qquad below: \the\belowdisplayskip \\
     aboveshort: \the\abovedisplayshortskip \qquad belowshort: \the\belowdisplayshortskip
+    \endgroup
 }
 
 
@@ -422,6 +556,14 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \collect@body\next@
     \shortskip@check
 }{}{\PackageWarningNoLine{methtools}{Failed to patch \protect\start@align}}
+
+\xpatchcmd{\start@gather}{%
+    \collect@body\next@
+}{%
+    \collect@body\next@
+    \shortskip@check
+}{}{\PackageWarningNoLine{methtools}{Failed to patch \protect\start@align}}
+
 % redefine \endalign to correct the belowskip
 %\xpatchcmd{\endalign}{%
 %    $$%
@@ -466,6 +608,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \global\@tempcnta\column@
     \hbox to\wd\split@firstline@LHS{}%
 }{}{\PackageWarningNoLine{methtools}{Failed to patch \protect\rendsplit@}}
+
 % check whether shortskips should be used; if yes, immediately account for the aboveskip and save belowskip for later
 \def\shortskip@check{%
     \ifmeasuring@\else
@@ -487,11 +630,28 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \column@\z@
     \@tempdima\z@
     \@tempdimb\z@
+    \newif\if@firstempty
+    \newif\if@secondempty
     \edef\@tempb{\fieldlengths@\row@}%
     \@for\@tempa:=\@tempb\do{%
         \advance\column@\@ne
         \shortskip@lcalc@width
+        \ifnum\column@=\@ne
+            \ifdim\@tempa=\z@
+                \@firstemptytrue
+            \fi
+        \fi
+        \ifnum\column@=\tw@
+            \ifdim\@tempa=\z@
+                \@secondemptytrue
+            \fi
+        \fi
     }%
+    \if@firstempty
+        \if@secondempty
+                \global\advance\@tempdimb \alignsep@
+        \fi
+    \fi
 }
 % second helper function to calculate how much the first equation row is indented. amsmath documentation:
 %    This macro calculates the ``indentation'' of the current row, as
@@ -573,5 +733,47 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
         $#3\left#1\raisebox{-\sf@dimen}{\box0}\right#2\m@th$%
     }
 }
+
+
+% =============== Plotting Setup ===============
+
+\ifakiotex@plotting
+
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{decorations.markings}
+
+% attempting to place axis labels closer... idk if it works tho
+\pgfplotsset{
+    /pgfplots/xlabel near ticks/.style={
+        /pgfplots/every axis x label/.style={
+            at={(ticklabel cs:0.5)},anchor=near ticklabel
+        }
+    },
+    /pgfplots/ylabel near ticks/.style={
+        /pgfplots/every axis y label/.style={
+            at={(ticklabel cs:0.5)},rotate=90,anchor=near ticklabel
+        }
+    },
+    /pgfplots/every axis y label/.style={
+        at={(ticklabel cs:0.5)},rotate=90,anchor=near ticklabel,
+    }
+}
+
+% default \small font for graph elements
+\pgfplotsset{
+    /pgfplots/every axis/.append style={
+        xlabel={$x$},          % default put x on x-axis
+        ylabel={$y$},          % default put y on y-axis
+        yticklabel style = {font=\small, xshift=0.5ex},
+        xticklabel style = {font=\small, yshift=0.5ex},
+        legend style={font=\small},
+        legend cell align={left},
+    },
+    /pgfplots/every node/.append style={font=\small},
+    /pgfplots/every tick label/.append style={font=\small},
+    /pgfplots/every axis legend/.append style={font=\small},
+}
+
+\fi
 
 \endinput
