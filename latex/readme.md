@@ -1,5 +1,7 @@
 # Custom LaTeX documentclass
 
+**Requires LuaLaTeX compiler**
+
 This is a document class file that based on article.cls that polishes and standardizes sizes and skips
 between text, equations, floats, etc.
 It is optimzied for writing short to medium length reports comprised of prose with figures, tables, and/or equations.  
@@ -15,7 +17,7 @@ Their sources are provided in comments in the file.
 
 11pt, A4 paper size, 5.2" x 8.6" text area.
 
-Use of `microtype` and `fontenc`.
+Use of `microtype` and unicode support with LuaLaTeX `fontspec`.
 
 Custom title page with two fields added to the article class default:
 `\subtitle` is a centered text placed under the title, author, and date; 
@@ -30,19 +32,25 @@ Does not highlight hyperlinks in a different color.
 Uses paragraph indentation AND inter-paragraph spacing.
 The paragraph spacing (and all other skips) scale in proportion with the line spacing.
 
+Uses a fancy ordinal date format like "Sunday 1st of January, 2024" (the ordinal is superscripted).
+
 
 ## Options
 
 | option           | default value | description                                   
 |------------------|---------------|-------------------------------------------
+| linespacing      | single        | string (single, onehalf, double): the document's line spacing
 | author           | true          | bool: whether author should be shown on titlepage
 | date             | true          | bool: whether date should be shown on titlepage
 | contents         | true          | bool: whether a table of contents should be generated
-| separatecontents | true          | bool: place ToC after titlepage or on same page?
-| linespacing      | single        | string (single, onehalf, double): the document's line spacing
-| debug            | false         | bool: currently unused
-| compacteqs       | false         | bool: whether to use reduced spacing between equations and text
+| separatetoc      | true          | bool: place ToC after titlepage or on same page?
 | bib              | true          | bool: whether to support a bibliography (uses biblatex with biber)
+| debug            | false         | bool: shows construction visualization using `lua-visual-debug`
+| compacteqs       | false         | bool: whether to use reduced spacing between equations and text
+| timestamp        | false         | bool: whether to include a time of compilation in footer of title page
+| plotting         | false         | bool: whether to load `pgfplots` and `tikz`
+| compacttoc       | false         | bool: structures ToC in two columns to take up less vertical space
+| compacttitle     | false         | bool: various changes to make the title stuff take less space. If this is on titlenotes are not allowed. This is best used alongside compacttoc. Try it and see
 
 Because `titlenotes` are placed at the bottom of the title page (and hence fills the entire title page), 
 when it is specified and shown, `separatecontents` will have no apparent effect.
