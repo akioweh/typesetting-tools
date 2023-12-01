@@ -30,9 +30,12 @@ Redefined `\paragraph` to act like a lower-level unnumbered header.
 Does not highlight hyperlinks in a different color.
 
 Uses paragraph indentation AND inter-paragraph spacing.
-The paragraph spacing (and all other skips) scale in proportion with the line spacing.
+**The paragraph spacing (and all other skips) scale in proportion with the line spacing.**
+This is the biggest feature; all sizes are carefully related to each other such that changing linespacing will nicely adjust everything else.
 
 Uses a fancy ordinal date format like "Sunday 1st of January, 2024" (the ordinal is superscripted).
+
+Uses unicode math font, and sets an emoji font (Google's NotoEmoji) to directly support unicode emoji characters in your `.tex` file.
 
 
 ## Options
@@ -72,7 +75,7 @@ The key `maintitle` is used for this.
 `\pskip`: inserts paragraph space
 
 `\d{<var>}`: properly typesets a differential operation. 
-`\d{x}` renders dx but beautifully and consistently.
+`\d{x}` renders dx but beautifully and consistently. (Actually, just use `physics`'s `\dd`.)
 
 `\vbreak`: use after (or maybe? before) a wrapped figure (`wrapfig2` package) if it manages to break everything after.
 (Happens when you placed it next to a list or section header.)
@@ -89,6 +92,20 @@ than the vanilla feature.
 `\shortenfences{<ldelim>}{<math>}{<rdelim>}`: like `$\left<ldelim> <math> \right<rdelim>$` but adjusts the heights of
 the large brackets to better fit lopsided fractions in \<math>.
 
+`\pl`: prints a length but in "bip points" (PostScript/international points) or 1/72ths of an inch (LaTeX "points" are retarded and are 1/72.27)
+
+`\halfwidth`: a length that is `0.5\textwidth - 0.5\columnsep` - useful to set the widths of side-by-side figures/minipages so they have a full columnsep between them (use `\hspace{\columnsep}` or other alignment techniques in between)
+
+`\mathfracstrut`: like `\mathstrut` but is the height of a full fraction with `\mathstrut` in both the nu- and denu-merators
+
+`\invisibox`: places invisible space-occupying box of specified width and height
+
+`\hollowbox`: same as `\invisibox` but draws a visible outline
+
+`\frametext` puts text into a structure like `\hollowbox`, but with nice spacing around all the rules
+
+`\fdom` and `\fim`: typesets the letters "dom" and "im" in mathrm; theyre used to denote "domain" and "image" of a function
+
 
 ## Custom Environments
 
@@ -101,6 +118,10 @@ Everything ater continutes on the next page. Used for `titlenotes`
 
 `enumns`: a better version of `enumeratenospace` defined using the `enumitem` package
 
+`ruled`: puts hrules above and below a section of text, but with good spacing. Accepts optional parameter as the "header"
+
+`wrappage`: some wrapfigure on steroid found on stack exchange... 
+
 In addition, there are three new custom table column types: `L`, `C`, and `R`.
 They are the same as their built-in lowercase variants but has the entire column in math mode.
 
@@ -111,11 +132,11 @@ To produce a consistent document, you need to adhere to certain practices.
 I cba to list them all now, but:
 - don't ever change the font size or style in the main body
 - don't ever use spacing commands like `\vspace` in text. They may only rarely be necessary to adjust `wrapfigure`s.
-- render figures and graphs consistent in style before including them
+- render figures and graphs consistent in style before including them, or just use tikz/pgfplots
 - either insert figures as full-width, or `wrapfigure` them or use `minipage`s to place multiple stacked horizontally. Same applies for tables; don't have small floats leaving horizontal space.
 - use `siunitx` commands for typesetting numbers or quantities with units
 - use tabularx `tabular` tables
 - caption everything, with the caption on top of tables but underneath figures
 - use `\autoref` whenever possible while referencing labels
-- use the provided environments, especially the lists.
-- use the provided macros, especially `\d` and `\makebibliography`
+- use the provided environments, especially the lists and `ruled`
+- use the provided macros, especially `\makebibliography`, `frametext`...
