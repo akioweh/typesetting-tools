@@ -3,7 +3,7 @@
 %! Date = 10/2/2023
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{akiotex}[2023-11-17 An amended version of article.cls that enforces a set of %
+\ProvidesPackage{akiotex}[2023-12-01 An amended version of article.cls that enforces a set of %
 predefined formatting and layout features for modern akiotex works (based on personal preference). %
 Includes useful packages and any patches/fixes for them as well as certain QOL macros.]
 
@@ -23,8 +23,10 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \DeclareBoolOption[false]{compacteqs}       % bool: whether to use reduced spacing between equations and text
 \DeclareBoolOption[false]{timestamp}        % bool: whether to include a time of compilation in footer of title page
 \DeclareBoolOption[false]{plotting}         % bool: whether to load pgfplots and tikz
-\DeclareBoolOption[false]{compacttoc}       % bool: compact ToC?
-\DeclareBoolOption[false]{compacttitle}     % bool: compact title page? If this is on titlenotes are not allowed
+\DeclareBoolOption[false]{compacttoc}       % bool: structures ToC in two columns to take up less vertical space
+\DeclareBoolOption[false]{compacttitle}     % bool: various changes to make the title stuff take less space.
+                                            % If this is on titlenotes are not allowed.
+                                            % This is best used alongside compacttoc
 
 \ProcessKeyvalOptions*\relax
 
@@ -62,7 +64,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage{mathtools}
 \RequirePackage[warnings-off={mathtools-colon,mathtools-overbracket}]{unicode-math}
 \RequirePackage{microtype}
-\RequirePackage{setspaceenhanced}
+\RequirePackage[byselectfont]{setspaceenhanced}
 \RequirePackage{polyglossia}
 \setdefaultlanguage[variant=us]{english}
 \RequirePackage[hypcap=true]{caption}
@@ -94,7 +96,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage[pagestyles]{titlesec}
 \RequirePackage{titletoc}
 \RequirePackage[thinc]{esdiff}
-\RequirePackage[unicode,hidelinks,hypertexnames=false,breaklinks=true]{hyperref}
+\RequirePackage[unicode,hidelinks,breaklinks=true]{hyperref}
 \RequirePackage{bookmark}
 \RequirePackage{calc}
 \RequirePackage{fmtcount}
@@ -112,9 +114,16 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 
 \usephysicsmodule[tightbraces=true]{ab}
 
+% set fonts and also set emoji fallback font to have automatic and working emojis
 \defaultfontfeatures{Ligatures=TeX}
-\setmainfont{Latin Modern Roman}
-%\setmathfont{Latin Modern Math}
+\let\dl\directlua % we're aliasing here because TexifyIDEA intellij plugin is stupid
+\dl{luaotfload.add_fallback("emojifallback",{"NotoEmoji:mode=harf;"})}
+\setmainfont{Latin Modern Roman}[RawFeature={fallback=emojifallback}]
+\setmathfont{Latin Modern Math}
+\AtBeginDocument{% unicode-math blackboard bold fonts are weird...
+  \let\mathbb\relax
+  \DeclareMathAlphabet{\mathbb}{U}{msb}{m}{n}%
+}
 
 % silence siunitx warning about physics being loaded
 \ExplSyntaxOn
@@ -153,24 +162,34 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     %parfill=0pt
 ]{parskip}
 
+% this was fucked up
+\ExplSyntaxOn
+\DeclareExpandableDocumentCommand{\unstretchscalelength}{ O{\baselinestretch} m }{%
+    % takes a mandatory length (#2) and divides it by optional floating point (#1)
+    \ifx#1\empty
+        #2%
+    \else
+        \fp_eval:n { 1 / #1 } #2%
+    \fi
+}
+\ExplSyntaxOff
+
 % define skips around display math environments
 \ifakiotex@compacteqs
     % with compacteqs option
     \g@addto@macro\normalsize{%
         \setlength{\abovedisplayskip}{0pt plus 0.5pt minus 0.2pt}
         \setlength{\belowdisplayskip}{0pt plus 0.5pt minus 0.2pt}
-        \setlength{\abovedisplayshortskip}{0pt plus 0.5pt minus 0.2pt}
-        \addtolength{\abovedisplayshortskip}{-\baselineskip}
+        \setlength{\abovedisplayshortskip}{\glueexpr 0pt plus 0.5pt minus 0.2pt - \baselineskip}
         \setlength{\belowdisplayshortskip}{0pt plus 0.5pt minus 0.2pt}
     }
 \else
     % normal suggested spacing
     \g@addto@macro\normalsize{%
-        \setlength{\abovedisplayskip}{\@parskipS}
-        \setlength{\belowdisplayskip}{\@parskip}
-        \setlength{\abovedisplayshortskip}{\@parskip}
-        \addtolength{\abovedisplayshortskip}{-\baselineskip}
-        \setlength{\belowdisplayshortskip}{\@parskipS}
+        \setlength{\abovedisplayskip}{\unstretchscalelength{\@parskip}}
+        \setlength{\belowdisplayskip}{\unstretchscalelength{\@parskip}}
+        \setlength{\abovedisplayshortskip}{\unstretchscalelength{\glueexpr \@parskip - \baselineskip}}
+        \setlength{\belowdisplayshortskip}{\unstretchscalelength{\@parskip}}
     }
 \fi
 
@@ -280,6 +299,9 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \renewcommand{\d}[1]{\ensuremath{\mathop{\mathrm{d}{#1}}}}  % proper dx differential operators
 % usage: \d{<variable>}
 
+\newcommand{\fdom}{\mathop{\mathrm{dom}}}
+\newcommand{\fim}{\mathop{\mathrm{im}}}
+
 \newcommand{\vbreak}{\leavevmode\vspace{-2\baselineskip}}  % weird hack for now to break out of vmode without extra spacing
 % useful between wrapfig and lists to avoid catastrophic duckery
 
@@ -300,6 +322,39 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \DeclareMathOperator{\arcsech}{arcsech}
 \DeclareMathOperator{\arccsch}{arccsch}
 \DeclareMathOperator{\arccoth}{arccoth}
+
+% text box thingie with a specified width and automatic height
+\newcommand{\frametext}[2]{%
+    % #1: width
+    % #2: content of box
+    \setlength{\fboxrule}{0.4pt}
+    \fbox{%
+        \begin{minipage}{\dimexpr #1 - 2\fboxsep - 2\fboxrule}%
+            #2%
+        \end{minipage}%
+    }%
+}
+
+% hollow box of specified width and height
+\DeclareDocumentCommand{\hollowbox}{ m m }{%
+    \setlength{\fboxsep}{0pt}%
+    \setlength{\fboxrule}{1pt}%
+    \fbox{%
+        \rule{\dimexpr #1 - 2pt}{0pt}%
+        \rule[-1pt]{0pt}{\dimexpr #2 - 2pt}%
+    }%
+}
+% invisible box of specified width and height
+\DeclareDocumentCommand{\invisbox}{ m m }{%
+    \phantom{\rule{#1}{#2}}%
+}
+
+% phnatom heights for weird cases
+\newcommand{\mathfracstrut}{\vphantom{\frac{\mathstrut}{\mathstrut}}}
+
+% half \textwidth - \columnsep
+\newcommand{\halfwidth}{\dimexpr 0.5\textwidth - 0.5\columnsep}
+
 
 % =============== Custom Environments ===============
 
@@ -363,6 +418,29 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \newcolumntype{L}{>{$}l<{$}}  % left-aligned math mode
 \newcolumntype{C}{>{$}c<{$}}  % center-aligned math mode
 \newcolumntype{R}{>{$}r<{$}}  % right-aligned math mode
+
+% simple environment to put nicely spaced hrules around certain content,
+% with an optional ``header'' typset in bold, unindented.
+\NewDocumentEnvironment{ruled}{o}{%
+    \vskip -\lastskip% remove parskip if there was a preceding paragraph
+    \vskip \dimexpr \@parskip + 3pt \relax
+    \hrule height 0.5pt%
+    \nopagebreak
+    \vskip \dimexpr -\@parskip + 3.5pt \relax
+    \IfValueTF{#1}{%
+        \vskip 1pt%
+        \nopagebreak
+        \noindent\textbf{#1} \hskip\parfillskip
+        \nopagebreak\break \indent
+    }{}%
+}{%
+    \vskip -\lastskip
+    \vskip 3pt%
+    \nopagebreak
+    \hrule height 0.5pt%
+    \vskip 3pt%
+    \par
+}
 
 
 % =============== Title & Contents ===============
@@ -433,8 +511,8 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 % modified maketitle command
 % it makes a clean title page along with a table of contents if the options specify to
 \renewcommand{\maketitle}{%
-    \let\saved@thepage\thepage
-    \let\thepage\relax
+%    \let\saved@thepage\thepage
+%    \let\thepage\relax
 %
     \ifakiotex@compacttitle\else
         \vspace*{2em}%
@@ -497,7 +575,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
         \clearpage
     \fi
     \pagenumbering{arabic}%
-    \let\thepage\saved@thepage
+%    \let\thepage\saved@thepage
 }
 
 
@@ -533,7 +611,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     {\LARGE LARGE: \csname f@size\endcsname pt; baselineskip: \the\baselineskip}
 
     \noindent parskip: \the\@parskip \\
-    textfloatsetp: \the\textfloatsep \qquad intextsep: \the\intextsep \qquad floatsep: \the\floatsep \quad fpsep: \the\@fpsep
+    textfloatsep: \the\textfloatsep \qquad intextsep: \the\intextsep \qquad floatsep: \the\floatsep \quad fpsep: \the\@fpsep
 
     \noindent above: \the\abovedisplayskip \qquad below: \the\belowdisplayskip \\
     aboveshort: \the\abovedisplayshortskip \qquad belowshort: \the\belowdisplayshortskip
@@ -684,18 +762,181 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \newcommand{\ShortSkip}{\vspace{\glueexpr\abovedisplayshortskip-\abovedisplayskip\relax}}
 
 
-% patching the wrapfig shortfalls (did not work)
+% wrapfig better kinda thingie
 
-%\tracingpatches
+\RequirePackage{environ}
+\RequirePackage{xparse}
+\RequirePackage{varwidth}
+\RequirePackage{afterpage}
 
-%\xapptocmd{\WF@wr}{%
-%    \captionsetup{type=figure}%
-%}{\def\success{true}}{\def\success{false}}
-%
-%\ShowCommand\WF@wr
-%\xpretocmd{\wraptable}{%
-%    \captionsetup{type=table}
-%}{}{}
+\ExplSyntaxOn
+\DeclareExpandableDocumentCommand{\dimratioceil}{ m m }{%
+    \fp_eval:n { ceil ( \dim_to_fp:n { #1 } / \dim_to_fp:n { #2 } , 0 ) }%
+}
+\DeclareExpandableDocumentCommand{\dimratiofloor}{ m m }{%
+    \fp_eval:n { floor ( \dim_to_fp:n { #1 } / \dim_to_fp:n { #2 } , 0 ) }%
+}
+\ExplSyntaxOff
+
+\newsavebox{\wp@image}
+
+\NewDocumentEnvironment{wrappage}{O{0} m O{0} m O{0}}{\par
+    % #1 (optional) is the number of lines until the end of the page
+    % #2 is r (right) or l (left)
+    % #3 (optional) is the number of lines for the image.
+    % #4 width (or 0pt to compute).
+    % #5 (optional) cropped lines # correction
+    \xdef\wp@linesleftinpage{#1}%
+    \newlength{\wp@heightleftinpage}%
+    \setlength{\wp@heightleftinpage}{\wp@linesleftinpage\baselineskip}% height left in page as a dimension
+    \ifnum\wp@linesleftinpage=0\relax% not supplied; calculate height of remaining page space
+        \setlength{\wp@heightleftinpage}{\dimexpr \pagegoal-\pagetotal-0.5\baselineskip}% height left
+        \xdef\wp@linesleftinpage{\the\numexpr \wp@heightleftinpage/\baselineskip}% divide height by baselineskip to get # of lines
+    \fi
+    \xdef\wp@side{#2}%
+    \xdef\wp@figureheightlines{#3}%
+    \newlength{\wp@figureheight}%
+    \setlength{\wp@figureheight}{\wp@figureheightlines\baselineskip}%
+    \xdef\wp@figurewidth{#4}%
+    \xdef\wp@lcorr{#5}%
+
+    \def\@captype{figure}% set type and help with hyperref hypcap
+    \wp@environ
+}{%
+    \endwp@environ
+    \ifnum\wp@figureheightlines=0\relax% not supplied; calculate height of figure in lines
+        \setlength{\wp@figureheight}{\dimexpr \ht\wp@image+\dp\wp@image+\intextsep}% height of figure
+        \xdef\wp@figureheightlines{\dimratioceil{\wp@figureheight}{\baselineskip}}% divide height by lineskip to get # of lines (ceil-ing-ed)
+        \xdef\wp@figureheightlines{\the\numexpr \wp@figureheightlines + \wp@lcorr}% adjust by correction
+    \fi
+    \ifdim \wp@heightleftinpage>\wp@figureheight% enough space left; put figure on this page
+        \AddToHookNext{para/before}{% execute normal wrapfig right before next paragraph
+            \begin{wrapfigure}[\wp@figureheightlines]{\wp@side}{\wp@figurewidth}
+                \box\wp@image
+            \end{wrapfigure}%
+        }%
+    \else% figure won't fit on this page
+        \if r\wp@side\relax
+            \wp@right% put image on right side
+        \else
+            \if l\wp@side\relax
+                \wp@left% put image on left side
+            \else
+                \errmessage{Bad wrappage argument: \textbf{\wp@side} must be \texbf{r} or \textbf{l}.}%
+            \fi
+        \fi
+    \fi
+}
+
+\def\wp@rightx{% NOT WORKING
+    \afterpage{% placement of figure
+        \noindent\hspace{\dimexpr \textwidth-\wp@figurewidth}%
+        \raisebox{\dimexpr \ht\strutbox-\height}[\ht\strutbox][0pt]{\box\wp@image}%
+        \vskip-\baselineskip
+    }%
+    % adjustment of paragraph shape
+    % generate list of right indents, per line
+    \xdef\wp@parshapeR{\space}
+%    \xdef\wp@parshapeL{\space}
+    \edef\wp@totindent{\the\dimexpr \wp@figurewidth + \columnsep}
+    \count2=0%
+    \loop \ifnum\count2 < \wp@figureheightlines% loop for as many lines as the height of the figure
+        \advance\count2 by 1%
+%        \xdef\wp@parshapeL{\wp@parshapeL0pt,}%
+        \xdef\wp@parshapeR{\wp@parshapeR\wp@totindent,}%
+    \repeat
+    % finally, reset, just in case
+%    \xdef\wp@parshapeL{\wp@parshapeL0pt}%
+    \xdef\wp@parshapeR{\wp@parshapeR0pt}%
+
+    \typeout{\wp@parshapeR}
+
+    \gcutright{\wp@linesleftinpage}{\wp@parshapeR}
+}
+
+\def\wp@right{% handle right side wrapfig
+    \afterpage{%
+        \xdef\wp@extraheight{\the\dimexpr \ht\AP@partial+\dp\AP@partial - \wp@figureheight}% this should be the height of the figure that sticks out from the bottom of the first paragraph
+        \noindent\hspace{\dimexpr \textwidth-\wp@figurewidth}% horizontally move to position where figure should go
+        \raisebox{\dimexpr \ht\strutbox-\height}[\ht\strutbox][0pt]{\box\wp@image}% place figure
+        \vskip-\baselineskip
+        \unvbox\AP@partial
+        \ifdim\wp@extraheight>0pt\relax% first paragraph not tall enough to wrap the fig
+            \AddToHookNext{para/begin}{%
+                \begin{wrapfigure}[\wp@lcorr]{r}{\wp@figurewidth}*% so we continue carving into the next, this time using wrapfig
+                    \vskip-\intextsep
+                    \rule{0pt}{\wp@extraheight}%
+                    \vskip-\intextsep
+                \end{wrapfigure}%
+                \vskip-\baselineskip\indent
+            }%
+        \fi
+    }
+    \xdef\wp@parshape{\the\numexpr \wp@linesleftinpage+\wp@figureheightlines+1}%
+    \edef\wp@test{\the\textwidth}%
+    \count1=\wp@linesleftinpage\relax
+    % shape the text around the figure by setting right indent to the affected lines
+    \loop\ifnum\count1>0% for the remaining lines on this page we set full width
+        \advance\count1 by -1
+        \xdef\wp@parshape{\wp@parshape\space 0pt \wp@test}%
+    \repeat
+    \edef\wp@test{\the\dimexpr \textwidth-\wp@figurewidth-\columnsep}%
+    \count1=\wp@figureheightlines\relax
+    \loop\ifnum\count1>0% for the actual affected lines on the next page we set right indent
+        \advance\count1 by -1
+        \xdef\wp@parshape{\wp@parshape\space 0pt \wp@test}%
+    \repeat
+    \xdef\wp@parshape{\wp@parshape\space 0pt \the\textwidth}%
+    \AddToHookNext{para/before}{\parshape=\wp@parshape}%
+}
+
+\def\wp@left{% handle left side wrapfig
+    \afterpage{%
+        \xdef\wp@extraheight{\the\dimexpr \ht\AP@partial+\dp\AP@partial - \wp@figureheight}%
+        \noindent\raisebox{\dimexpr \ht\strutbox-\height}[0pt][0pt]{\box\wp@image}%
+        \vskip-\baselineskip
+        \unvbox\AP@partial
+        \ifdim\wp@extraheight>0pt\relax
+            \AddToHookNext{para/begin}{%
+                \begin{wrapfigure}[\wp@lcorr]{l}{\wp@figurewidth}*%
+                    \vskip-\intextsep
+                    \rule{0pt}{\wp@extraheight}%
+                    \vskip-\intextsep
+                \end{wrapfigure}%
+                \vskip-\baselineskip\indent
+            }%
+        \fi
+    }%
+    \xdef\wp@parshape{\the\numexpr \wp@linesleftinpage+\wp@figureheightlines+1}%
+    \edef\wp@test{\the\textwidth}%
+    \count1=\wp@linesleftinpage\relax
+    \loop\ifnum\count1>0
+        \advance\count1 by -1
+        \xdef\wp@parshape{\wp@parshape\space 0pt \wp@test}%
+    \repeat
+    \edef\wp@temp{\the\dimexpr \wp@figurewidth+\columnsep}%
+    \edef\wp@test{\the\dimexpr \textwidth-\wp@temp}%
+    \count1=\wp@figureheightlines\relax
+    \loop\ifnum\count1>0
+        \advance\count1 by -1
+        \xdef\wp@parshape{\wp@parshape\space \wp@temp \wp@test}%
+    \repeat
+    \xdef\wp@parshape{\wp@parshape\space 0pt \the\textwidth}%
+    \AddToHookNext{para/before}{\parshape=\wp@parshape}\par
+}
+
+\NewEnviron{wp@environ}{% put \BODY into \wp@image
+    \ifdim\wp@figurewidth=0pt
+        \savebox\wp@image{%
+            \varwidth{\textwidth}%
+            %\renewcommand{\caption}[2][\empty]{\par}% dummy caption
+            \BODY
+            \endvarwidth
+        }% calculate figure width
+        \xdef\wp@figurewidth{\the\wd\wp@image}%
+    \fi
+    \global\setbox\wp@image=\hbox{\minipage{\wp@figurewidth}\BODY\endminipage}
+}
 
 
 % vertically compact brackets for lopsided fractions
@@ -742,21 +983,18 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \pgfplotsset{compat=1.18}
 \usetikzlibrary{decorations.markings}
 
-% attempting to place axis labels closer... idk if it works tho
+% attempting to place axis labels closer
 \pgfplotsset{
     /pgfplots/xlabel near ticks/.style={
         /pgfplots/every axis x label/.style={
-            at={(ticklabel cs:0.5)},anchor=near ticklabel
-        }
+            at={(ticklabel cs:0.5)},anchor=center,
+        },
     },
     /pgfplots/ylabel near ticks/.style={
         /pgfplots/every axis y label/.style={
-            at={(ticklabel cs:0.5)},rotate=90,anchor=near ticklabel
-        }
+            at={(ticklabel cs:0.5)},rotate=90,anchor=center,
+        },
     },
-    /pgfplots/every axis y label/.style={
-        at={(ticklabel cs:0.5)},rotate=90,anchor=near ticklabel,
-    }
 }
 
 % default \small font for graph elements
@@ -764,15 +1002,20 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     /pgfplots/every axis/.append style={
         xlabel={$x$},          % default put x on x-axis
         ylabel={$y$},          % default put y on y-axis
-        yticklabel style = {font=\small, xshift=0.5ex},
-        xticklabel style = {font=\small, yshift=0.5ex},
-        legend style={font=\small},
-        legend cell align={left},
+        yticklabel style = {xshift=0.5ex},
+        xticklabel style = {yshift=0.5ex},
+        legend style = {font=\small},
+        legend cell align = {left},
+        xlabel near ticks,
+        ylabel near ticks,
+        xlabel shift = 1ex,
     },
     /pgfplots/every node/.append style={font=\small},
     /pgfplots/every tick label/.append style={font=\small},
-    /pgfplots/every axis legend/.append style={font=\small},
+    /pgfplots/every axis legend/.append style={font=\small, draw=none},
+    /pgfplots/every axis title/.append style={yshift=-2ex},
 }
+\tikzset{>=latex}
 
 \fi
 
