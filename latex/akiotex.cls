@@ -3,7 +3,7 @@
 %! Date = 10/2/2023
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{akiotex}[2023-12-01 An amended version of article.cls that enforces a set of %
+\ProvidesPackage{akiotex}[2024-02-28 An amended version of article.cls that enforces a set of %
 predefined formatting and layout features for modern akiotex works (based on personal preference). %
 Includes useful packages and any patches/fixes for them as well as certain QOL macros.]
 
@@ -27,6 +27,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \DeclareBoolOption[false]{compacttitle}     % bool: various changes to make the title stuff take less space.
                                             % If this is on titlenotes are not allowed.
                                             % This is best used alongside compacttoc
+\DeclareStringOption[alphabetic]{bibstyle}  % [apa|ieee|...] style of bibliography to use, passed to biblatex
 
 \ProcessKeyvalOptions*\relax
 
@@ -64,7 +65,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage{mathtools}
 \RequirePackage[warnings-off={mathtools-colon,mathtools-overbracket}]{unicode-math}
 \RequirePackage{microtype}
-\RequirePackage[byselectfont]{setspaceenhanced}
+\RequirePackage{setspaceenhanced}
 \RequirePackage{polyglossia}
 \setdefaultlanguage[variant=us]{english}
 \RequirePackage[hypcap=true]{caption}
@@ -86,7 +87,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \RequirePackage[
         sorting=nty,
         backend=biber,
-        style=apa,  % somehow 99% of akiotex science submissions require APA bib style... why???
+        style=\akiotex@bibstyle,
         backref=true
     ]{biblatex}
 \fi
@@ -162,34 +163,24 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     %parfill=0pt
 ]{parskip}
 
-% this was fucked up
-\ExplSyntaxOn
-\DeclareExpandableDocumentCommand{\unstretchscalelength}{ O{\baselinestretch} m }{%
-    % takes a mandatory length (#2) and divides it by optional floating point (#1)
-    \ifx#1\empty
-        #2%
-    \else
-        \fp_eval:n { 1 / #1 } #2%
-    \fi
-}
-\ExplSyntaxOff
-
 % define skips around display math environments
 \ifakiotex@compacteqs
     % with compacteqs option
     \g@addto@macro\normalsize{%
         \setlength{\abovedisplayskip}{0pt plus 0.5pt minus 0.2pt}
         \setlength{\belowdisplayskip}{0pt plus 0.5pt minus 0.2pt}
-        \setlength{\abovedisplayshortskip}{\glueexpr 0pt plus 0.5pt minus 0.2pt - \baselineskip}
+        \setlength{\abovedisplayshortskip}{0pt plus 0.5pt minus 0.2pt}
+        \addtolength{\abovedisplayshortskip}{-\baselineskip}
         \setlength{\belowdisplayshortskip}{0pt plus 0.5pt minus 0.2pt}
     }
 \else
     % normal suggested spacing
     \g@addto@macro\normalsize{%
-        \setlength{\abovedisplayskip}{\unstretchscalelength{\@parskip}}
-        \setlength{\belowdisplayskip}{\unstretchscalelength{\@parskip}}
-        \setlength{\abovedisplayshortskip}{\unstretchscalelength{\glueexpr \@parskip - \baselineskip}}
-        \setlength{\belowdisplayshortskip}{\unstretchscalelength{\@parskip}}
+        \setlength{\abovedisplayskip}{\@parskipS}
+        \setlength{\belowdisplayskip}{\@parskip}
+        \setlength{\abovedisplayshortskip}{\@parskip}
+        \addtolength{\abovedisplayshortskip}{-\baselineskip}
+        \setlength{\belowdisplayshortskip}{\@parskipS}
     }
 \fi
 
@@ -351,9 +342,6 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 
 % phnatom heights for weird cases
 \newcommand{\mathfracstrut}{\vphantom{\frac{\mathstrut}{\mathstrut}}}
-
-% half \textwidth - \columnsep
-\newcommand{\halfwidth}{\dimexpr 0.5\textwidth - 0.5\columnsep}
 
 
 % =============== Custom Environments ===============
