@@ -54,6 +54,7 @@ Uses unicode math font, and sets an emoji font (Google's NotoEmoji) to directly 
 | plotting         | false         | bool: whether to load `pgfplots` and `tikz`
 | compacttoc       | false         | bool: structures ToC in two columns to take up less vertical space
 | compacttitle     | false         | bool: various changes to make the title stuff take less space. If this is on titlenotes are not allowed. This is best used alongside compacttoc. Try it and see
+| bibstyle         | alphabetic    | string (apa, ieee, etc.): style of bibliography to use, passed to biblatex if `bib` is set
 
 Because `titlenotes` are placed at the bottom of the title page (and hence fills the entire title page), 
 when it is specified and shown, `separatecontents` will have no apparent effect.
@@ -74,8 +75,8 @@ The key `maintitle` is used for this.
 
 `\pskip`: inserts paragraph space
 
-`\d{<var>}`: properly typesets a differential operation. 
-`\d{x}` renders dx but beautifully and consistently. (Actually, just use `physics`'s `\dd`.)
+~~`\d{<var>}`: properly typesets a differential operation. 
+`\d{x}` renders dx but beautifully and consistently.~~ (Actually, just use `physics`'s `\dd`.)
 
 `\vbreak`: use after (or maybe? before) a wrapped figure (`wrapfig2` package) if it manages to break everything after.
 (Happens when you placed it next to a list or section header.)
