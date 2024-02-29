@@ -3,7 +3,7 @@
 %! Date = 10/2/2023
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{akiotex}[2024-02-28 An amended version of article.cls that enforces a set of %
+\ProvidesPackage{akiotex}[2024-02-29 An amended version of article.cls that enforces a set of %
 predefined formatting and layout features for modern akiotex works (based on personal preference). %
 Includes useful packages and any patches/fixes for them as well as certain QOL macros.]
 
@@ -68,6 +68,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage{setspaceenhanced}
 \RequirePackage{polyglossia}
 \setdefaultlanguage[variant=us]{english}
+\RequirePackage{float}
 \RequirePackage[hypcap=true]{caption}
 \RequirePackage{csquotes}
 \RequirePackage{scrextend}
@@ -92,7 +93,6 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     ]{biblatex}
 \fi
 \RequirePackage{xurl}
-\RequirePackage{float}
 \RequirePackage[section]{placeins}
 \RequirePackage[pagestyles]{titlesec}
 \RequirePackage{titletoc}
@@ -104,6 +104,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage[unit=bp,use-siunitx=true]{lengthconvert}
 \RequirePackage[english,showdow]{datetime2}
 \RequirePackage{multicol}
+\RequirePackage{soul}
 \ifakiotex@plotting
     \RequirePackage{tikz}
     \RequirePackage{pgfplots}
@@ -139,14 +140,21 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \addbibresource{main.bib}  % you better be naming your bibtex file main
 \fi
 
+% fix hyperref hypcap warning thing with wrapfigures
+\AtBeginEnvironment{wrapfigure}{\captionsetup{type=figure}}
+\AtBeginEnvironment{wraptable}{\captionsetup{type=table}}
+
 
 % =============== Styling (Skips) ===============
 
 % set line spacing using setspace package
+\newcommand{\currentspacing}{\singlespacing}
 \ifx\akiotex@linespacing\AK@onehalf
     \onehalfspacing
+    \renewcommand{\currentspacing}{\onehalfspacing}
 \fi \ifx\akiotex@linespacing\AK@double
     \doublespacing
+    \renewcommand{\currentspacing}{\doublespacing}
 \fi
 % define basic skips in proportion to line spacing
 \newlength{\@parskip}  % paragraph spacing; half of line height
@@ -155,13 +163,25 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \setlength{\@parskipS}{0.5\baselineskip plus 0.2\baselineskip minus 0.2\baselineskip}  % \@parskip with more stretch
 \newlength{\@normalsize}  % save current font size as a length
 \setlength{\@normalsize}{\f@size pt}
-\newlength{\@linegap}  % gap between consecutive lines
-\setlength{\@linegap}{\baselineskip - \@normalsize}
+\newlength{\linegap}  % gap between consecutive lines
+\setlength{\linegap}{\baselineskip - \@normalsize}
 \RequirePackage[
     skip=\@parskip,
     indent,
     %parfill=0pt
 ]{parskip}
+
+% this was fucked up
+\ExplSyntaxOn
+\DeclareExpandableDocumentCommand{\unstretchscalelength}{ O{\baselinestretch} m }{%
+    % takes a mandatory length (#2) and divides it by optional floating point (#1)
+    \ifx#1\empty
+        #2%
+    \else
+        \fp_eval:n { 1 / #1 } #2%
+    \fi
+}
+\ExplSyntaxOff
 
 % define skips around display math environments
 \ifakiotex@compacteqs
@@ -176,19 +196,18 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \else
     % normal suggested spacing
     \g@addto@macro\normalsize{%
-        \setlength{\abovedisplayskip}{\@parskipS}
-        \setlength{\belowdisplayskip}{\@parskip}
-        \setlength{\abovedisplayshortskip}{\@parskip}
-        \addtolength{\abovedisplayshortskip}{-\baselineskip}
-        \setlength{\belowdisplayshortskip}{\@parskipS}
+        \setlength{\abovedisplayskip}{\unstretchscalelength{\@parskip}}
+        \setlength{\belowdisplayskip}{\unstretchscalelength{\@parskip}}
+        \setlength{\abovedisplayshortskip}{\unstretchscalelength{\glueexpr \@parskip - \baselineskip}}
+        \setlength{\belowdisplayshortskip}{\unstretchscalelength{\@parskip}}
     }
 \fi
 
 % define skips around floats
-\setlength{\textfloatsep}{2.3\@parskip}  % between float and text
-\setlength{\intextsep}{1.15\@parskip}    % between float and text when inline (no \par)
-\setlength{\floatsep}{1.15\@parskip}     % between floats
-\setlength{\@fpsep}{\floatsep}           % between floats on a float-only page
+\setlength{\textfloatsep}{\@parskipS + \linegap} % between float and text
+\setlength{\intextsep}{\@parskipS}                 % between float and text when inline (no \par)
+\setlength{\floatsep}{\@parskipS + \linegap}       % between floats
+\setlength{\@fpsep}{\@parskipS + \linegap}         % between floats on a float-only page
 
 % space between text body and footnotes
 \geometry{footnotesep=3\@parskip}
@@ -199,8 +218,9 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \setcounter{tocdepth}{3}  % set ToC levels to show
 
 % define caption style
-\captionsetup{font=footnotesize}
-\captionsetup{belowskip=0pt,aboveskip=\@linegap}
+\captionsetup[table]{position=above}
+\captionsetup{font=footnotesize, singlelinecheck=true, }
+\captionsetup{belowskip=2pt,aboveskip=\linegap}
 
 % default float placement options
 \floatplacement{figure}{!htbp}
@@ -319,6 +339,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     % #1: width
     % #2: content of box
     \setlength{\fboxrule}{0.4pt}
+    \noindent
     \fbox{%
         \begin{minipage}{\dimexpr #1 - 2\fboxsep - 2\fboxrule}%
             #2%
@@ -326,10 +347,23 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     }%
 }
 
+% same as above but width is auto-fit
+\newcommand{\autoframe}[1]{
+    % #1: content of box
+    \setlength{\fboxrule}{0.4pt}
+    \noindent
+    \fbox{%
+        \begin{varwidth}{\dimexpr \linewidth - 2\fboxsep - 2\fboxrule}%
+            #1%
+        \end{varwidth}%
+    }%
+}
+
 % hollow box of specified width and height
 \DeclareDocumentCommand{\hollowbox}{ m m }{%
     \setlength{\fboxsep}{0pt}%
     \setlength{\fboxrule}{1pt}%
+    \noindent
     \fbox{%
         \rule{\dimexpr #1 - 2pt}{0pt}%
         \rule[-1pt]{0pt}{\dimexpr #2 - 2pt}%
@@ -337,11 +371,22 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 }
 % invisible box of specified width and height
 \DeclareDocumentCommand{\invisbox}{ m m }{%
+    \noindent
     \phantom{\rule{#1}{#2}}%
 }
 
 % phnatom heights for weird cases
 \newcommand{\mathfracstrut}{\vphantom{\frac{\mathstrut}{\mathstrut}}}
+
+% half \textwidth - \columnsep
+\newcommand{\halfwidth}{\dimexpr 0.5\textwidth - 0.5\columnsep}
+
+% \multicolumn correctly working with tabularx X columns
+\newcommand{\multicolumnXc}[3]{
+    \multicolumn{#1}{%
+            >{\centering \hsize=\dimexpr #1\hsize + \tabcolsep * (2 * (#1 - 1)) \relax}#2
+    }{#3}
+}
 
 
 % =============== Custom Environments ===============
@@ -406,6 +451,9 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \newcolumntype{L}{>{$}l<{$}}  % left-aligned math mode
 \newcolumntype{C}{>{$}c<{$}}  % center-aligned math mode
 \newcolumntype{R}{>{$}r<{$}}  % right-aligned math mode
+
+% tabularx X column type but centered
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
 
 % simple environment to put nicely spaced hrules around certain content,
 % with an optional ``header'' typset in bold, unindented.
