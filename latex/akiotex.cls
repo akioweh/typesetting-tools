@@ -3,7 +3,7 @@
 %! Date = 10/2/2023
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{akiotex}[2024-02-29 An amended version of article.cls that enforces a set of %
+\ProvidesPackage{akiotex}[2024-03-03 An amended version of article.cls that enforces a set of %
 predefined formatting and layout features for modern akiotex works (based on personal preference). %
 Includes useful packages and any patches/fixes for them as well as certain QOL macros.]
 
@@ -105,6 +105,11 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage[english,showdow]{datetime2}
 \RequirePackage{multicol}
 \RequirePackage{soul}
+\RequirePackage{environ}
+\RequirePackage{xparse}
+\RequirePackage{varwidth}
+\RequirePackage{afterpage}
+\RequirePackage{listings}
 \ifakiotex@plotting
     \RequirePackage{tikz}
     \RequirePackage{pgfplots}
@@ -123,8 +128,8 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \setmainfont{Latin Modern Roman}[RawFeature={fallback=emojifallback}]
 \setmathfont{Latin Modern Math}
 \AtBeginDocument{% unicode-math blackboard bold fonts are weird...
-  \let\mathbb\relax
-  \DeclareMathAlphabet{\mathbb}{U}{msb}{m}{n}%
+    \let\mathbb\relax
+    \DeclareMathAlphabet{\mathbb}{U}{msb}{m}{n}%
 }
 
 % silence siunitx warning about physics being loaded
@@ -161,9 +166,10 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \newlength{\@parskipS}
 \setlength{\@parskip}{0.5\baselineskip plus 0.07\baselineskip minus 0.07\baselineskip}
 \setlength{\@parskipS}{0.5\baselineskip plus 0.2\baselineskip minus 0.2\baselineskip}  % \@parskip with more stretch
+
 \newlength{\@normalsize}  % save current font size as a length
 \setlength{\@normalsize}{\f@size pt}
-\newlength{\linegap}  % gap between consecutive lines
+\newlength{\linegap}  % rough gap between consecutive lines
 \setlength{\linegap}{\baselineskip - \@normalsize}
 \RequirePackage[
     skip=\@parskip,
@@ -171,7 +177,8 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     %parfill=0pt
 ]{parskip}
 
-% this was fucked up
+% used to adjust display skips based on baselinestretch, since TeX internals stretch
+% them by baseline stretch factor, so we ``undo'' that to get 1:1 sizes as set for each \xxxxdisplayskip
 \ExplSyntaxOn
 \DeclareExpandableDocumentCommand{\unstretchscalelength}{ O{\baselinestretch} m }{%
     % takes a mandatory length (#2) and divides it by optional floating point (#1)
@@ -204,13 +211,16 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \fi
 
 % define skips around floats
-\setlength{\textfloatsep}{\@parskipS + \linegap} % between float and text
-\setlength{\intextsep}{\@parskipS}                 % between float and text when inline (no \par)
-\setlength{\floatsep}{\@parskipS + \linegap}       % between floats
-\setlength{\@fpsep}{\@parskipS + \linegap}         % between floats on a float-only page
+\setlength{\textfloatsep}{\@parskipS + \linegap}  % between top/bottom float and rest of text
+\setlength{\intextsep}{\@parskip + \linegap}     % around float when inline or ``here''
+\setlength{\floatsep}{\@parskipS}                 % between floats in top/bottom float areas
+\setlength{\@fpsep}{\@parskipS + \linegap}        % between floats on a float-only page
 
 % space between text body and footnotes
 \geometry{footnotesep=3\@parskip}
+
+\lineskip0pt
+\lineskiplimit0pt
 
 
 % =============== Styling (Other) ===============
@@ -219,8 +229,8 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 
 % define caption style
 \captionsetup[table]{position=above}
-\captionsetup{font=footnotesize, singlelinecheck=true, }
-\captionsetup{belowskip=2pt,aboveskip=\linegap}
+\captionsetup{font=footnotesize, singlelinecheck=true}
+\captionsetup{belowskip=0pt,aboveskip=\linegap}
 
 % default float placement options
 \floatplacement{figure}{!htbp}
@@ -278,6 +288,49 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \setfoot{}{}{\tiny Compiled \DTMnow}
 }
 
+% allow narrow/small WrapFloats without it capping the sizing
+\renewcommand{\WFscalefactor}{0.2}
+
+% listings formatting stuff
+\lstset{%
+    numbers=left,
+    numberstyle=\small,
+    aboveskip=\@parskip,
+    belowskip=\@parskip,
+    breaklines=true,
+    frame=leftline,
+}
+% stop line numbers from going beyond margin by redefining internals
+% https://tex.stackexchange.com/a/60998/305653
+\RequirePackage{totcount}
+\newcounter{maxlstnumber}
+\regtotcounter{maxlstnumber}
+\def\updatemaxlstnumber{%
+    \ifnum\value{lstnumber}>\value{maxlstnumber}%
+        \setcounter{maxlstnumber}{\the\value{lstnumber}}%
+    \fi%
+}
+\newlength{\MaxSizeOfLineNumbers}%
+
+% The following command allows you to customize line number style, without affecting \ref{}.
+% Here, the style is "\thelstnumber." (with a dot at the end)
+\def\renderlstnumber{\normalfont\lst@numberstyle{\thelstnumber}\kern1em}
+\def\lst@PlaceNumber{\updatemaxlstnumber\makebox[\MaxSizeOfLineNumbers][l]{\renderlstnumber}}
+% This must be called after \begin{document}
+\def\autosizelstnumber{
+    \newlength{\LoopSizeOfLineNumber}
+    \setcounter{lstnumber}{\the\totvalue{maxlstnumber}}
+    \loop\ifnum\value{lstnumber}>\z@
+        \settowidth{\LoopSizeOfLineNumber}{\renderlstnumber}
+        \ifdim\LoopSizeOfLineNumber>\MaxSizeOfLineNumbers
+            \setlength{\MaxSizeOfLineNumbers}{\LoopSizeOfLineNumber}
+        \fi
+        \addtocounter{lstnumber}{-1}
+    \repeat
+    \lstset{framexleftmargin=-\MaxSizeOfLineNumbers}
+}
+\AtBeginDocument{\autosizelstnumber}
+
 
 % =============== Patching Biblatex ===============
 
@@ -302,7 +355,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 % =============== Custom Macros ===============
 
 \newcommand{\lb}{\vspace{\baselineskip}}  % quick insert empty line
-\newcommand{\pskip}{\vspace{\parskip}}  % quick insert default paragraph spacing
+\newcommand{\pskip}{\vspace{\@parskip}}  % quick insert default paragraph spacing
 
 \newcommand*\tageq{\refstepcounter{equation}\tag{\theequation}}  % tag equation in *-ed ams environments
 % usage (before the end of a line in starred ams environments): <equation> \tageq\label{<id>} \\
@@ -397,8 +450,8 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 % bulleted list with normal line spacing and no indentation
 \newenvironment{itemizenospace}{%
     \begin{list}{-}{%
-        \setlength{\partopsep}{\parskip}
-        \setlength{\topsep}{-\parskip}  % assuming parskip package already adds space
+        \setlength{\partopsep}{\@parskip}
+        \setlength{\topsep}{-\@parskip}  % assuming parskip package already adds space
         \setlength{\parskip}{0pt}
         \setlength{\parsep}{0pt}
         \setlength{\itemsep}{0pt}
@@ -417,8 +470,8 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \newenvironment{enumeratenospace}{%
     \begin{list}{\arabic{enumnscounter}.}{%
         \usecounter{enumnscounter}
-        \setlength{\partopsep}{\parskip}
-        \setlength{\topsep}{-\parskip}  % assuming parskip package already adds space
+        \setlength{\partopsep}{\@parskip}
+        \setlength{\topsep}{-\@parskip}  % assuming parskip package already adds space
         \setlength{\parskip}{0pt}
         \setlength{\parsep}{0pt}
         \setlength{\itemsep}{0pt}
@@ -442,8 +495,8 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     labelsep=*,
     labelindent=0pt,
     itemsep=0pt, parsep=0pt,
-    topsep=-\parskip,
-    partopsep=\parskip%
+    topsep=-\@parskip,
+    partopsep=\@parskip%
 }
 
 % table things
@@ -654,6 +707,52 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \endgroup
 }
 
+% command debugger
+% https://tex.stackexchange.com/a/125034/305653
+\ExplSyntaxOn
+
+% The user level command just hands its arguments to an inner function
+% #1 is optional, default value empty; #2 is the list of commands
+\NewDocumentCommand{\showcommands}{O{}m}
+ {
+  \gopa_show_commands:nn { #1 } { #2 }
+ }
+
+\cs_new_protected:Npn \gopa_show_commands:nn #1 #2
+ {
+  % start a group so changes to the meaning of functions
+  % deriving from the key setting will be undone at the end
+  \group_begin:
+  % evaluate the first argument, which should be `mode=<value>'
+  \keys_set:nn { gopa/commands } { #1 }
+  % for each item in the second argument (represented by ##1)
+  % execute the code below
+  \clist_map_inline:nn { #2 }
+   {
+    {\ttfamily \token_to_str:N ##1~=~\gopa_show_mode:N ##1 }
+    \par
+   }
+  \group_end:
+ }
+
+% a variant for `mode=expand'; \use:n just uses its argument
+% so \use:V will expand the control sequence that follows it
+% and brace the expansion, so \use:n will remove the braces
+\cs_generate_variant:Nn \use:n { V }
+
+% Set up the key/value pairs; just one key that can receive
+% the values "show", "expand" or "meaning"; default is "expand"
+\keys_define:nn { gopa/commands }
+ {
+  mode .choice:,
+  mode / show    .code:n = \cs_set_eq:NN \gopa_show_mode:N \cs_show:N,
+  mode / expand  .code:n = \cs_set_eq:NN \gopa_show_mode:N \use:V,
+  mode / meaning .code:n = \cs_set_eq:NN \gopa_show_mode:N \cs_meaning:N,
+  mode .initial:n = expand,
+ }
+
+\ExplSyntaxOff
+
 
 % =============== Patching Existing Envs ===============
 
@@ -795,16 +894,12 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \fi
 }
 
+% command to manually apply a short display skip (by inserting negative space)
+% use right before a math display environment
 \newcommand{\ShortSkip}{\vspace{\glueexpr\abovedisplayshortskip-\abovedisplayskip\relax}}
 
 
 % wrapfig better kinda thingie
-
-\RequirePackage{environ}
-\RequirePackage{xparse}
-\RequirePackage{varwidth}
-\RequirePackage{afterpage}
-
 \ExplSyntaxOn
 \DeclareExpandableDocumentCommand{\dimratioceil}{ m m }{%
     \fp_eval:n { ceil ( \dim_to_fp:n { #1 } / \dim_to_fp:n { #2 } , 0 ) }%
@@ -1010,6 +1105,182 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
         $#3\left#1\raisebox{-\sf@dimen}{\box0}\right#2\m@th$%
     }
 }
+
+
+% =============== Even lower-level patches =================
+
+% fix for uneven top vs bottom spacing around (singular) ``here'' floats (floats between pars)
+\newsavebox{\symstrutbox}
+\newsavebox{\symstrutbigbox}
+\newsavebox{\altstrutbox}
+\newlength{\@tempht}
+\newlength{\@temphtt}
+
+%\setlength{\@tempht}{.3\baselineskip}
+%\addtolength{\@tempht}{\heightof{sexnom}}
+%\sbox\symstrutbox{\vrule height \@tempht depth .3\baselineskip width 0pt}
+%\setlength{\@tempht}{.7\baselineskip - \heightof{sexnom}}
+%\sbox\symstrutbigbox{\vrule height .7\baselineskip depth \@tempht width 0pt}
+
+% \symstrut is a copy of \strut, but a bit shorter such that the space above and below regular text
+% (more precisely, a line with neither ascenders mnor descenders) is more even (especially at large \baselinestretch's)
+% this is done with reference to the height of lowercase letters e o s x n and m
+\newcommand{\symstrut}{\relax\ifmmode\copy\symstrutbox\else\unhcopy\symstrutbox\fi}  % copy of \strut definition
+\newcommand{\symstrutbig}{\relax\ifmmode\copy\symstrutbigbox\else\unhcopy\symstrutbigbox\fi}
+\newcommand{\altstrut}{\relax\ifmmode\copy\altstrutbox\else\unhcopy\altstrutbox\fi}
+\xpatchcmd{\set@fontsize}%
+    {\setbox\strutbox}%
+    {%
+        \setlength{\@tempht}{.3\baselineskip}%
+        \addtolength{\@tempht}{\heightof{sexnom}}%
+        \sbox\symstrutbox{\vrule height \@tempht depth .3\baselineskip width 0pt}%
+        \setlength{\@tempht}{.7\baselineskip - \heightof{sexnom}}%
+        \sbox\symstrutbigbox{\vrule height .7\baselineskip depth \@tempht width 0pt}%
+        \setlength{\@tempht}{\baselineskip - \heightof{sexnom}}%
+        \setlength{\@temphtt}{\baselineskip - .5\@tempht}%
+        \sbox\altstrutbox{\vrule height \@temphtt depth .5\@tempht width 0pt}%
+        \setbox\strutbox
+    }%
+{}{\typeout{symstrut patch fail}}
+
+% add these symmetrical struts to the beginning and end of paragraphs except those in floats
+%\AddToHook{para/end}{\ifnum\@floatpenalty<0\relax\else\symstrut\fi}
+%\AddToHook{para/begin}{\ifnum\@floatpenalty<0\relax\else\symstrut\fi}
+% this adds a strut to the line before a horizontal-mode h float to correct vertical positioning
+%\newlength{\@whatRtheTmpNames}%
+%\def\foo#1{\edef\tmp{\immediate\write20{#1: \the\prevdepth}}\tmp}
+%\xpatchcmd{\latex@xfloat}%
+%    {\ifhmode}%
+%    {%
+%        \ifhmode
+%            \vadjust{%
+%                \foo{asdf}%
+%                \setlength{\@whatRtheTmpNames}{-0.3\baselineskip}%
+%                \addtolength{\@whatRtheTmpNames}{\prevdepth}%
+%            }%
+%    }%
+%    {}{\typeout{pre-float depth calc patch fail}}
+\patchcmd{\end@float}%
+    {\vadjust}%
+    {%
+        \altstrut
+        \ignorespacesafterend
+%        \vadjust{%
+%            \vskip-\@whatRtheTmpNames
+%        }%
+        \vadjust
+    }%
+    {}{\typeout{pre-float strut patch fail}}
+
+
+% fixing issues with spacing around multiple floats together
+% modified from solution at https://tex.stackexchange.com/a/40363/305653
+\newlength{\intextsepV}  % like \intextsep but only for floats in vmode
+\setlength{\intextsepV}{\intextsep - \@parskip}
+
+\newcommand{\@abovefloatsep@patch}{%
+    \edef\save@first@penalty{\the\lastpenalty}\unpenalty
+    \ifnum \lastpenalty = \@M  % hopefully the OR penalty
+        \unpenalty
+    \else
+        \penalty \save@first@penalty \relax % put it back
+    \fi
+    \ifnum\outputpenalty <-\@Mii  % seen in vertical mode; not inline
+        \addvspace\intextsepV
+        \vskip\@parskip
+    \else  % inline
+        \addvspace\intextsep
+    \fi
+}
+\newcommand{\@belowfloatsep@patch}{%
+    \ifnum\outputpenalty <-\@Mii  % seen in vertical mode
+        \vskip\intextsepV
+        \aftergroup\nointerlineskip
+    \else  % seen in horizontal mode
+        \vskip\intextsep
+    \fi
+}
+
+\patchcmd{\@addtocurcol}% before-float intextsep
+    {\vskip \intextsep}%
+    {\@abovefloatsep@patch}%
+    {}{\typeout{intextsep patch1 fail}}
+
+\patchcmd{\@addtocurcol}% after-float intextsep
+    {\vskip\intextsep \ifnum\outputpenalty <-\@Mii \vskip -\parskip\fi}%
+    {\@belowfloatsep@patch}%
+    {}{\typeout{intextsep patch2 fail}}
+
+
+% and also for H floats from float package
+\newif{\ifH@hmode}
+\pretocmd{\@float@HH}{%
+    \ifhmode
+    	\H@hmodetrue
+    \else
+    	\H@hmodefalse
+    \fi
+}{}{\typeout{intextsep patch-1H fail}}
+%\patchcmd{\float@endH}% insert strut if in horizontal mode
+%    {\@endfloatbox}%
+%    {%
+%        \@endfloatbox
+%        \ifH@hmode
+%            \altstrut
+%        \fi
+%    }%
+%    {}{\typeout{intextsep patch0H fail}}
+\patchcmd{\float@endH}% before-float intextsep
+    {\vskip\intextsep\if@flstyle}%
+    {%
+%        \ifvmode\else
+%            \par% end paragraph and go in vertical mode?!!!!
+%        \fi
+%        \unskip
+        \ifH@hmode
+            \par
+            \addvspace\intextsep
+        \else
+            \addvspace\intextsepV
+            \vskip\@parskip
+        \fi
+        \if@flstyle
+    }%
+    {}{\typeout{intextsep patch1H fail}}
+\patchcmd{\float@endH}% after-float intextsep; remove parskip if in horizontal mode
+    {\box\@currbox\vskip\intextsep\relax}%
+    {%
+        \box\@currbox
+%        \ifH@hmode
+            \vskip -\@parskip  % cancel following parskip if in horizontal mode
+%        \fi
+        \vskip\intextsep
+%        \ifH@hmode
+%            \prevdepth.5\@tempht  % manipulate the next interline space to get even spacing
+%        \else
+            \nointerlineskip
+%        \fi
+    }%
+    {}{\typeout{intextsep patch2H fail}}
+
+% keep \nopagebreak's working (\unpenalty stuff above breaks it)
+\def\pagebreak{\@testopt{\@@pgbk}4}
+\def\@@pgbk [#1]{%
+    \ifvmode
+        \penalty \@getpen@{#1}%
+    \else
+        \@bsphack
+        \vadjust{\penalty \@getpen@{#1}}%
+        \@esphack
+    \fi
+}
+\def\@getpen@#1{-\ifcase #1 \z@ \or \@lowpenalty\or
+         \@medpenalty \or \@highpenalty
+         \else \@M \fi}
+% and here the definition used by \nopagebreak internally with a tiny change:
+\def\@getpen#1{\ifcase #1 \z@ \or \@lowpenalty\or
+         \@medpenalty \or \@highpenalty
+         \else \@Mi \fi}
 
 
 % =============== Plotting Setup ===============
