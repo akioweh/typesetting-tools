@@ -3,10 +3,19 @@
 %! Date = 10/2/2023
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{akiotex}[2024-03-03 An amended version of article.cls that enforces a set of %
+\ProvidesPackage{akiotex}[2024-03-05 An amended version of article.cls that enforces a set of %
 predefined formatting and layout features for modern akiotex works (based on personal preference). %
 Includes useful packages and any patches/fixes for them as well as certain QOL macros.]
 
+% basic profiling
+\directlua{tmr_start = os.clock()}
+\AtBeginDocument{\directlua{tmr_text = os.clock()}}
+\AtEndDocument{\typeout{^^J
+    =====### COMPILE TIME: \directlua{
+        tex.print( string.format("\@percentchar.3f + \@percentchar.3f = \@percentchar.3f",
+                                 tmr_text-tmr_start, os.clock()-tmr_text, os.clock()-tmr_start) )
+    } ###===== ^^J
+}}
 
 % =============== Options ===============
 
@@ -28,6 +37,9 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
                                             % If this is on titlenotes are not allowed.
                                             % This is best used alongside compacttoc
 \DeclareStringOption[alphabetic]{bibstyle}  % [apa|ieee|...] style of bibliography to use, passed to biblatex
+\DeclareBoolOption[false]{tblr}
+\DeclareBoolOption[false]{fast}             % bool: magic to speed up compile
+\DeclareBoolOption[false]{faster}           % bool: magicer
 
 \ProcessKeyvalOptions*\relax
 
@@ -47,6 +59,10 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \PackageError{akiotex}{Invalid value for linespacing option.}
 \fi
 
+\ifakiotex@faster
+
+\fi
+
 
 % =============== Load external class and packages ===============
 
@@ -56,11 +72,17 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     a4paper,
     textwidth=374.4bp,  % 5.2in
     textheight=619.2bp, % 8.6in
-    top=100bp
+    top=100bp,
+    driver=luatex,
 ]{geometry}
 \RequirePackage{luaotfload}
 \RequirePackage{fontspec}
-\RequirePackage{amsmath}
+\ifakiotex@tblr
+    \RequirePackage{tabularray}
+    \UseTblrLibrary{amsmath, booktabs, counter, diagbox, siunitx}
+\else
+    \RequirePackage{amsmath}
+\fi
 \RequirePackage{amssymb}
 \RequirePackage{mathtools}
 \RequirePackage[warnings-off={mathtools-colon,mathtools-overbracket}]{unicode-math}
@@ -76,10 +98,14 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage{wrapfig2}
 \RequirePackage{xfrac}
 \RequirePackage{graphicx}
-\RequirePackage{booktabs}
+\ifakiotex@tblr\else
+    \RequirePackage{booktabs}
+\fi
 \RequirePackage{tabularx}
 \RequirePackage{multirow}
-\RequirePackage{siunitx}
+\ifakiotex@tblr\else
+    \RequirePackage{siunitx}
+\fi
 \RequirePackage{physics}
 \RequirePackage{physics2}
 \RequirePackage{array}
@@ -110,16 +136,25 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 \RequirePackage{varwidth}
 \RequirePackage{afterpage}
 \RequirePackage{listings}
+\RequirePackage{lua-widow-control}
 \ifakiotex@plotting
     \RequirePackage{tikz}
     \RequirePackage{pgfplots}
+    \usetikzlibrary{calc}
+    \ifakiotex@fast
+        \usepgfplotslibrary{external}
+        \tikzexternalize
+    \fi
 \fi
 \ifakiotex@debug
     \RequirePackage{lua-visual-debug}
     %\geometry{showframe}
+    \lwcsetup{draft, draftoffset=2em}
 \fi
 
 \usephysicsmodule[tightbraces=true]{ab}
+
+\lwcsetup{balanced}
 
 % set fonts and also set emoji fallback font to have automatic and working emojis
 \defaultfontfeatures{Ligatures=TeX}
@@ -763,14 +798,14 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 % a new box to store the left-hand side of the first line inside a split environment
 \newbox\split@firstline@LHS
 % redefine \start@align to incorporate a call to the check whether the preceding line is short enough
-\xpatchcmd{\start@align}{%
+\patchcmd{\start@align}{%
     \collect@body\next@
 }{%
     \collect@body\next@
     \shortskip@check
 }{}{\PackageWarningNoLine{methtools}{Failed to patch \protect\start@align}}
 
-\xpatchcmd{\start@gather}{%
+\patchcmd{\start@gather}{%
     \collect@body\next@
 }{%
     \collect@body\next@
@@ -789,15 +824,19 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 
 % Redefine \intertext@ to correct the belowskip. How we can patch this depends on whether mathtools has been loaded, hence we defer this action until \begin{document}.
 \AtBeginDocument{%
-    \@ifpackageloaded{mathtools}{\MHInternalSyntaxOn}{\makeatletter}%
-    \xpatchcmd{\intertext@}{%
+%    \@ifpackageloaded{mathtools}{%
+        \MHInternalSyntaxOn
+%    }{\makeatletter}%
+    \patchcmd{\intertext@}{%
         \penalty\postdisplaypenalty\vskip\belowdisplayskip
     }{%
         \penalty\postdisplaypenalty\vskip\belowdisplayskip
         \vspace{\belowdisplayskip@mod}%
         \global\belowdisplayskip@mod\z@
     }{}{\PackageWarningNoLine{methtools}{Failed to patch \protect\intertext@}}
-    \@ifpackageloaded{mathtools}{\MHInternalSyntaxOff}{\makeatother}%
+%    \@ifpackageloaded{mathtools}{%
+        \MHInternalSyntaxOff
+%    }{\makeatother}%
 }
 % There is some weird behavior if split is used and the "tbtags" option is active. The first line of the split environment seems to be a dummy line set without any width on the left-hand side. Since shortskips need to be determined depending on the width of the first line, many split environments would erroneously be detected as qualifying for shortskips. To work around this we modify \insplit@ to explicitly measure the width of the left-hand side of the first line and further modify \rendsplit@ to insert an empty box of said width.
 \xpatchcmd{\insplit@}{% Patching a command containing ## seems to require regexpatch's xpatchcmd.
@@ -815,7 +854,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     \global\setbox\split@firstline@LHS\box\@tempboxa
     \fi
 }{}{\PackageWarningNoLine{methtools}{Failed to patch \protect\insplit@}}
-\xpatchcmd{\rendsplit@}{%
+\patchcmd{\rendsplit@}{%
     \global\@tempcnta\column@
 }{%
     \global\@tempcnta\column@
