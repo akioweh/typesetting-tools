@@ -3,7 +3,7 @@
 %! Date = 10/2/2023
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{akiotex}[2024-03-05 An amended version of article.cls that enforces a set of %
+\ProvidesPackage{akiotex}[2024-03-06 An amended version of article.cls that enforces a set of %
 predefined formatting and layout features for modern akiotex works (based on personal preference). %
 Includes useful packages and any patches/fixes for them as well as certain QOL macros.]
 
@@ -38,8 +38,9 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
                                             % This is best used alongside compacttoc
 \DeclareStringOption[alphabetic]{bibstyle}  % [apa|ieee|...] style of bibliography to use, passed to biblatex
 \DeclareBoolOption[false]{tblr}
-\DeclareBoolOption[false]{fast}             % bool: magic to speed up compile
-\DeclareBoolOption[false]{faster}           % bool: magicer
+\DeclareBoolOption[true]{fast}              % bool: magic to speed up compile (externalize tikz pictures)
+\DeclareBoolOption[false]{faster}           % bool: magicer (does nothing for now)
+\DeclareBoolOption[false]{obfus}            % bool: magicest
 
 \ProcessKeyvalOptions*\relax
 
@@ -77,6 +78,27 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 ]{geometry}
 \RequirePackage{luaotfload}
 \RequirePackage{fontspec}
+\ifakiotex@obfus
+    \RequirePackage{luatexbase}
+    \RequirePackage{luacode}
+
+    \begin{luacode*}
+        local obfuscate = function (tfmdata, _specification)
+            if not tfmdata or type (tfmdata) ~= "table" then
+                return
+            end
+
+            local characters = tfmdata.characters
+            if characters then
+                for codepoint, char in next, characters do
+                    char.tounicode = string.format([[%0.4X]], math.random(0x01, 0xFFFF))
+                end
+            end
+        end
+
+        luatexbase.add_to_callback("luaotfload.patch_font", obfuscate, "user.obfuscate_font", 1)
+    \end{luacode*}
+\fi
 \ifakiotex@tblr
     \RequirePackage{tabularray}
     \UseTblrLibrary{amsmath, booktabs, counter, diagbox, siunitx}
