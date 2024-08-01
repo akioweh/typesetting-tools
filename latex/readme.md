@@ -107,6 +107,12 @@ the large brackets to better fit lopsided fractions in \<math>.
 
 `\fdom` and `\fim`: typesets the letters "dom" and "im" in mathrm; theyre used to denote "domain" and "image" of a function
 
+`\biig`, `\biiig`, `\biigl` & `\biigr`, `\biiigl` & `\biiigr`: two more math delim sizes between \big and \Big, because that jump is too big.
+\biig is half way between \big and \biiig (a quarter-step bigger than \big).
+\biiig is half way between \big and \Big (a half-step bigger than \big)  
+`I.e., the sizes are:     \big < \biig < \biiig < \Big`  
+`and the relative ratios:   1     1.25     1.5      2 `
+
 
 ## Custom Environments
 
