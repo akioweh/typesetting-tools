@@ -3,7 +3,7 @@
 %! Date = 10/2/2023
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{akiotex}[2024-03-06 An amended version of article.cls that enforces a set of %
+\ProvidesPackage{akiotex}[2024-05-30 An amended version of article.cls that enforces a set of %
 predefined formatting and layout features for modern akiotex works (based on personal preference). %
 Includes useful packages and any patches/fixes for them as well as certain QOL macros.]
 
@@ -173,6 +173,9 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
     %\geometry{showframe}
     \lwcsetup{draft, draftoffset=2em}
 \fi
+% for custom paren sizes
+\RequirePackage{scalerel}
+\RequirePackage{stackengine}
 
 \usephysicsmodule[tightbraces=true]{ab}
 
@@ -416,6 +419,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 
 \newcommand*\tageq{\refstepcounter{equation}\tag{\theequation}}  % tag equation in *-ed ams environments
 % usage (before the end of a line in starred ams environments): <equation> \tageq\label{<id>} \\
+\newcommand*{\tageqt}[1]{\refstepcounter{equation}\tag{#1}}
 
 \renewcommand{\d}[1]{\ensuremath{\mathop{\mathrm{d}{#1}}}}  % proper dx differential operators
 % usage: \d{<variable>}
@@ -497,6 +501,31 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
             >{\centering \hsize=\dimexpr #1\hsize + \tabcolsep * (2 * (#1 - 1)) \relax}#2
     }{#3}
 }
+
+% two more sizes between \big and \Big, because that jump is too big.
+% \biig is half way between \big and \biig (a quarter-step bigger than \big)
+\newcommand\biig[1]{%
+    \scalerel*[5pt]{%
+        \Big#1%
+    }{%
+        \ensurestackMath{\addstackgap[.75pt]{\big#1}}%
+    }%
+}
+\newcommand\biigl[1]{\mathopen{\pig{#1}}}
+\newcommand\biigr[1]{\mathclose{\pig{#1}}}
+
+% \biiig is half way between \big and \Big (a half-step bigger than \big)
+\newcommand\biiig[1]{%
+    \scalerel*[5.5pt]{%
+        \Big#1%
+    }{%
+        \ensurestackMath{\addstackgap[1.5pt]{\big#1}}%
+    }%
+}
+\newcommand\biiigl[1]{\mathopen{\pig{#1}}}
+\newcommand\biiigr[1]{\mathclose{\pig{#1}}}
+% I.e., the sizes are:     \big < \biig < \biiig < \Big
+% and the relative ratios:   1     1.25     1.5      2
 
 
 % =============== Custom Environments ===============
