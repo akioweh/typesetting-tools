@@ -503,7 +503,7 @@ Includes useful packages and any patches/fixes for them as well as certain QOL m
 }
 
 % two more sizes between \big and \Big, because that jump is too big.
-% \biig is half way between \big and \biig (a quarter-step bigger than \big)
+% \biig is half way between \big and \biiig (a quarter-step bigger than \big)
 \newcommand\biig[1]{%
     \scalerel*[5pt]{%
         \Big#1%
